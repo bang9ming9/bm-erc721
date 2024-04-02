@@ -55,9 +55,9 @@ contract BmErc721 is ERC721Enumerable, Ownable {
         uint256[] memory amounts,
         string calldata value
     ) external {
-        uint256 length = burnIDs.length;
+        uint256 length = amounts.length;
         if (length == 0) revert();
-        if (length != amounts.length) revert();
+
         uint256 sum;
         for (uint256 i = 0; i < length; ) {
             sum += amounts[i];
