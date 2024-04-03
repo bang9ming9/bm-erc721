@@ -8,6 +8,10 @@ import hre from "hardhat";
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
+// TC1: hardhat deploy test
+// TC2: Mint ERC721
+// TC3: Burn ERC721
+// TC4: Transfer ERC721
 describe("BmErc721", function () {
     async function deployContracts() {
         const [owner, ...eoas] = await hre.ethers.getSigners();
@@ -77,12 +81,12 @@ describe("BmErc721", function () {
 
             const mint = erc721.connect(eoa)["mint(uint256[],uint256[],string)"]
             // input 의 길이가 다르다
-            await expect(mint([1, 2, 3], [halfCost, halfCost], "https://github.com/bang9ming9")).to.be.reverted
-            // 입력 잔액, input 배열의 길이가 다르다
-            await expect(mint([1, 2], [halfCost, halfCost, halfCost], "https://github.com/bang9ming9")).to.be.reverted
+            await expect(mint([1, 2, 3], [halfCost, halfCost], "https://github.com/bang9ming9")).to.be.revertedWithCustomError(erc1155, "ERC1155InvalidArrayLength")
             // 입력 잔액이 COST 와 다르다
-            await expect(mint([1, 2], [halfCost, COST], "https://github.com/bang9ming9")).to.be.reverted
-            await expect(mint([1, 2, 3], [halfCost, halfCost, halfCost], "https://github.com/bang9ming9")).to.be.reverted
+            await expect(mint([1, 2], [halfCost, COST], "https://github.com/bang9ming9")).to.be.revertedWithCustomError(erc721, "BmErc721InvalidERC1155Value")
+            await expect(mint([1, 2, 3], [halfCost, halfCost, halfCost], "https://github.com/bang9ming9")).to.be.revertedWithCustomError(erc721, "BmErc721InvalidERC1155Value")
+            // 입력 잔액, input 배열의 길이가 다르다
+            await expect(mint([1, 2], [halfCost, halfCost, halfCost], "https://github.com/bang9ming9")).to.be.revertedWithCustomError(erc721, "BmErc721InvalidERC1155Value")
         })
         it("Success to mint(Batch) ERC721", async function () {
             const { eoas, erc1155, erc721 } = await loadFixture(deployContracts);
@@ -120,7 +124,7 @@ describe("BmErc721", function () {
             await erc1155.connect(eoa2).mint(1, COST);
             await erc1155.connect(eoa2).setApprovalForAll(await erc721.getAddress(), true);
             const mint2 = erc721.connect(eoa2)["mint(uint256,string)"]
-            await expect(mint2(1, "https://github.com/bang9ming9")).to.be.reverted
+            await expect(mint2(1, "https://github.com/bang9ming9")).to.be.revertedWithCustomError(erc721, "BmErc721DuplicatedDataHash")
         })
 
         it("Success to mint if burned dup Data", async function () {
@@ -213,7 +217,7 @@ describe("BmErc721", function () {
                 .withArgs(ZERO_ADDRESS, eoa.address, 1);
 
             const recipient = eoas[1]
-            await expect(erc721.connect(recipient).burn(1)).to.be.reverted
+            await expect(erc721.connect(recipient).burn(1)).to.be.revertedWithCustomError(erc721, "ERC721InsufficientApproval")
         })
     })
     // TC4: Transfer ERC721
@@ -233,7 +237,7 @@ describe("BmErc721", function () {
             const to = eoas[1];
             expect(await erc721.transferable(1)).equal(false);
 
-            await expect(erc721.connect(eoa).transferFrom(eoa.address, to.address, 1)).to.be.reverted
+            await expect(erc721.connect(eoa).transferFrom(eoa.address, to.address, 1)).to.be.revertedWithCustomError(erc721, "BmErc721IsNotTransferable").withArgs(1);
 
             // owner 가 아니면 setTransferAble 를 실행할 수 없다
             await expect(erc721.connect(eoa).setTransferable(1, true)).to.be.revertedWithCustomError(erc721, "OwnableUnauthorizedAccount")
@@ -288,7 +292,7 @@ describe("BmErc721", function () {
 
             // set transfer able false
             await expect(erc721.connect(owner).setTransferable(1, false)).to.emit(erc721, "TransferAbleSet").withArgs(1, false);
-            await expect(erc721.connect(to).transferFrom(to.address, eoa.address, 1)).to.reverted;
+            await expect(erc721.connect(to).transferFrom(to.address, eoa.address, 1)).to.revertedWithCustomError(erc721, "BmErc721IsNotTransferable").withArgs(1);
         })
     })
 });
