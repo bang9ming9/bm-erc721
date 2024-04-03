@@ -14,6 +14,8 @@ interface IERC1155 {
 }
 
 contract BmErc721 is ERC721Enumerable, Ownable {
+    event TransferAbleSet(uint256 indexed tokenID, bool indexed able);
+
     uint256 public constant MINT_COST = 0.5 ether;
     IERC1155 public immutable BM_ERC1155;
 
@@ -21,6 +23,7 @@ contract BmErc721 is ERC721Enumerable, Ownable {
     string private _baseURI_;
     mapping(uint256 tokenID => bool) public transferable;
     mapping(uint256 tokenID => string) public tokenData;
+    mapping(bytes32 dataHash => bool) public existed;
 
     constructor(
         address owner,
@@ -34,6 +37,13 @@ contract BmErc721 is ERC721Enumerable, Ownable {
 
     function setBaseURI(string memory baseURI) external onlyOwner {
         _baseURI_ = baseURI;
+    }
+
+    function setTransferable(uint256 tokenID, bool able) external onlyOwner {
+        if (transferable[tokenID] != able) {
+            transferable[tokenID] = able;
+            emit TransferAbleSet(tokenID, able);
+        }
     }
 
     function burn(uint256 tokenID) external {
@@ -74,8 +84,13 @@ contract BmErc721 is ERC721Enumerable, Ownable {
     }
 
     function _mintSet(address to, string calldata value) private {
+        bytes32 dataHash = keccak256(abi.encodePacked(value));
+        if (existed[dataHash]) revert();
+
         uint256 tokenID = ++_idCounter;
         _mint(to, tokenID);
+
+        existed[dataHash] = true;
         tokenData[tokenID] = value;
     }
 
@@ -85,14 +100,19 @@ contract BmErc721 is ERC721Enumerable, Ownable {
 
     function _update(
         address to,
-        uint256 tokenId,
+        uint256 tokenID,
         address auth
     ) internal override returns (address) {
-        address from = super._update(to, tokenId, auth);
+        address from = super._update(to, tokenID, auth);
 
         // mint, burn 이 아니라면 (transfer 라면) transferable 한 상태여야 한다.
         if (!(from == address(0) || to == address(0))) {
-            if (!transferable[tokenId]) revert();
+            if (!transferable[tokenID]) revert();
+        }
+
+        if (to == address(0)) {
+            delete existed[keccak256(abi.encodePacked(tokenData[tokenID]))];
+            delete tokenData[tokenID];
         }
 
         return from;
